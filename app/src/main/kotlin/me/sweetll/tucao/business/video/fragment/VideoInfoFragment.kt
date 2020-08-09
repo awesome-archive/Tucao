@@ -1,35 +1,31 @@
 package me.sweetll.tucao.business.video.fragment
 
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
+import android.os.Build
 import android.os.Bundle
-import android.support.v4.app.Fragment
-import android.support.v7.widget.StaggeredGridLayoutManager
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.listener.OnItemClickListener
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseFragment
-import me.sweetll.tucao.business.download.model.Part
-import me.sweetll.tucao.business.download.model.Video
+import me.sweetll.tucao.model.json.Part
+import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.business.video.adapter.PartAdapter
 import me.sweetll.tucao.business.video.viewmodel.VideoInfoViewModel
-import me.sweetll.tucao.business.video.viewmodel.VideoViewModel
 import me.sweetll.tucao.databinding.FragmentVideoInfoBinding
 import me.sweetll.tucao.extension.DownloadHelpers
 import me.sweetll.tucao.extension.HistoryHelpers
-import me.sweetll.tucao.extension.toast
-import me.sweetll.tucao.model.json.Result
 import me.sweetll.tucao.model.xml.Durl
 
 
 class VideoInfoFragment: BaseFragment() {
     lateinit var binding: FragmentVideoInfoBinding
     lateinit var viewModel: VideoInfoViewModel
-    lateinit var result: Result
+    lateinit var video: Video
 
     lateinit var parts: MutableList<Part>
     lateinit var selectedPart: Part
@@ -38,21 +34,26 @@ class VideoInfoFragment: BaseFragment() {
 
     var canInit = 0
 
-    override fun onCreateView(inflater: LayoutInflater?, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_video_info, container, false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            binding.starImg.setImageResource(R.drawable.asl_fab_heart_21)
+        } else {
+            binding.starImg.setImageResource(R.drawable.asl_fab_heart)
+        }
         viewModel = VideoInfoViewModel(this)
         binding.viewModel = viewModel
         return binding.root
     }
 
-    override fun onViewCreated(view: View?, savedInstanceState: Bundle?) {
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         canInit = canInit or 1
         checkInit()
     }
 
-    fun bindResult(result: Result) {
-        this.result = result
+    fun bindVideo(video: Video) {
+        this.video = video
         canInit = canInit or 2
         checkInit()
     }
@@ -61,40 +62,42 @@ class VideoInfoFragment: BaseFragment() {
         if (canInit != 3) {
             return
         }
-        viewModel.bindResult(result)
-        result.video.forEachIndexed {
-            index, video ->
-            video.order = index
-            // 解决直传的问题
-            if (video.durls.isEmpty() && video.file.isNotEmpty()) {
-                video.vid = "${result.hid}${video.order}"
-                video.durls.add(Durl(url = video.file))
+        viewModel.bindResult(video)
+        video.parts.forEachIndexed {
+            index, part ->
+            part.order = index
+            // 标记直传
+            if (part.durls.isEmpty() && part.file.isNotEmpty()) {
+                part.vid = "${video.hid}${part.order}"
             }
         }
 
         val downloadParts = DownloadHelpers.loadDownloadVideos()
-                .flatMap { it.subItems }
-        val videoHistory = HistoryHelpers.loadPlayHistory().find { it.hid == result.hid }
+                .flatMap { it.parts }
+        val videoHistory = HistoryHelpers.loadPlayHistory()
+                .find { it.hid == video.hid }
 
-        parts = result.video.map {
-            video ->
-            downloadParts.find { it.vid == video.vid } ?: Part(video.title, video.order, video.vid, video.type, durls = video.durls)
+        parts = video.parts.map {
+            part ->
+            // 替换成已经下载好的视频
+            downloadParts.find { it.vid == part.vid } ?: part
         }.map {
             it.checked = false
+            // 加载历史播放进度
             if (videoHistory != null) {
-                val historyVideo = videoHistory.video.find { v -> v.vid == it.vid }
+                val historyVideo = videoHistory.parts.find { v -> v.vid == it.vid }
                 if (historyVideo != null) {
-                    it.hasPlay = true
+                    it.hadPlay = true
                     it.lastPlayPosition = historyVideo.lastPlayPosition
                 } else {
-                    it.hasPlay = false
+                    it.hadPlay = false
                     it.lastPlayPosition = 0
                 }
             }
             it
         }.toMutableList()
         parts[0].checked = true
-        parts[0].hasPlay = true
+        parts[0].hadPlay = true
         selectedPart = parts[0]
 
         partAdapter = PartAdapter(parts)
@@ -109,7 +112,7 @@ class VideoInfoFragment: BaseFragment() {
                 selectedPart = helper.getItem(position) as Part
                 if (!selectedPart.checked) {
                     partAdapter.data.forEach { it.checked = false }
-                    selectedPart.hasPlay = true
+                    selectedPart.hadPlay = true
                     selectedPart.checked = true
                     partAdapter.notifyDataSetChanged()
 

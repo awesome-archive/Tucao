@@ -1,8 +1,7 @@
 package me.sweetll.tucao.business.home.fragment
 
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
 import android.os.Bundle
-import android.support.v4.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,10 +19,6 @@ class ChannelListFragment : BaseFragment() {
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_channel_list, container, false)
         binding.viewModel = listViewModel
         return binding.root
-    }
-
-    override fun onViewCreated(view: View?, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
     }
 
 }

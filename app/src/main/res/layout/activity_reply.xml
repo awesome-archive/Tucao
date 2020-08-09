@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="me.sweetll.tucao.business.video.ReplyActivity">
+
+    <data>
+
+        <variable
+            name="viewModel"
+            type="me.sweetll.tucao.business.video.viewmodel.ReplyViewModel" />
+    </data>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/white"
+        android:orientation="vertical">
+
+        <View
+            android:id="@+id/statusBar"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:background="@color/colorPrimaryDark"
+            tools:layout_height="25dp" />
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/colorPrimary"
+            android:minHeight="?attr/actionBarSize"
+            app:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+            app:titleTextAppearance="@style/Toolbar.TitleText" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/white"
+                android:transitionName="transition_background" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <RelativeLayout
+                    android:id="@+id/mainCommentContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:foreground="?android:selectableItemBackground"
+                    android:orientation="vertical"
+                    android:paddingBottom="8dp"
+                    android:paddingLeft="16dp"
+                    android:paddingRight="16dp"
+                    android:paddingTop="8dp"
+                    android:transitionGroup="true"
+                    android:transitionName="transition_comment"
+                    tools:paddingTop="25dp">
+
+                    <LinearLayout
+                        android:id="@+id/linear_top"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:id="@+id/img_avatar"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp" />
+
+                        <LinearLayout
+                            android:id="@+id/linear_left"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/text_nickname"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/primary_text"
+                                android:textSize="12sp"
+                                tools:text="五年印象" />
+
+                            <TextView
+                                android:id="@+id/text_level"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:background="#F19483"
+                                android:paddingLeft="4dp"
+                                android:paddingRight="4dp"
+                                android:textColor="@color/white"
+                                android:textSize="11sp"
+                                tools:text="lv3" />
+
+                        </LinearLayout>
+
+
+                        <TextView
+                            android:id="@+id/text_lch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/secondary_text"
+                            android:textSize="10sp"
+                            tools:text="154楼" />
+
+                        <TextView
+                            android:id="@+id/text_time"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:textColor="@color/secondary_text"
+                            android:textSize="10sp"
+                            tools:text="24秒前" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/text_info"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_alignStart="@+id/linear_top"
+                        android:layout_below="@+id/linear_top"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingExtra="2dp"
+                        android:textColor="@color/primary_text"
+                        android:textSize="12sp"
+                        tools:text="啦啦啦啦啦啦啊\n啦啦啦啦啦\n啦啦啦\n啦啦啦啦\n啦啦啦" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_alignStart="@+id/text_info"
+                        android:layout_below="@+id/text_info"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="12dp"
+                            android:layout_height="12dp"
+                            android:src="@drawable/ic_comment_oval"
+                            android:tint="@color/grey_600" />
+
+                        <TextView
+                            android:id="@+id/text_reply_num"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:textColor="@color/secondary_text"
+                            android:textSize="10sp"
+                            tools:text="59" />
+
+
+                        <LinearLayout
+                            android:id="@+id/linear_thumb_up"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="32dp"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:id="@+id/img_thumb_up"
+                                android:layout_width="12dp"
+                                android:layout_height="12dp"
+                                android:src="@drawable/ic_thumb_up"
+                                android:tint="@color/grey_600" />
+
+                            <TextView
+                                android:id="@+id/text_thumb_up"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:textColor="@color/secondary_text"
+                                android:textSize="10sp"
+                                tools:text="351" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </RelativeLayout>
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="20dp">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_gravity="center"
+                        android:background="@color/divider" />
+
+                    <TextView
+                        android:id="@+id/text_reply_num_divider"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:background="@color/white"
+                        android:paddingEnd="16dp"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/primary_text"
+                        android:textSize="14sp"
+                        tools:text="共14条回复" />
+
+                </FrameLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/replyRecycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingBottom="60dp"
+                    android:clipToPadding="false"
+                    android:background="@color/white" />
+
+            </LinearLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/replyFab"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="32dp"
+                android:onClick="@{viewModel::onClickReplyFab}"
+                android:src="@drawable/ic_comment_white"
+                android:visibility="invisible"
+                app:backgroundTint="@color/pink_300"
+                app:fabSize="normal"
+                tools:visibility="visible" />
+
+            <LinearLayout
+                android:id="@+id/replyContainer"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_gravity="bottom"
+                android:background="@color/white"
+                android:elevation="8dp"
+                android:gravity="center_vertical"
+                android:paddingBottom="4dp"
+                android:paddingEnd="8dp"
+                android:paddingStart="8dp"
+                android:paddingTop="8dp"
+                android:visibility="invisible"
+                tools:visibility="visible">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColorHint="@color/pink_300"
+                    android:theme="@style/PinkEdit">
+
+                    <EditText
+                        android:id="@+id/replyEdit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="吐槽"
+                        android:text="@={viewModel.content}"
+                        android:textColor="@color/secondary_text"
+                        android:textSize="14sp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Button
+                    android:id="@+id/sendReplyBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginLeft="8dp"
+                    android:enabled="false"
+                    android:onClick="@{viewModel::onClickSendReply}"
+                    android:text="发射"
+                    android:textColor="@color/white"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </LinearLayout>
+</layout>

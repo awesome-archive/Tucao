@@ -1,13 +1,16 @@
 package me.sweetll.tucao.rxdownload
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.IBinder
 import io.reactivex.Observable
-import me.sweetll.tucao.business.download.model.Part
+import me.sweetll.tucao.model.json.Part
 import me.sweetll.tucao.rxdownload.entity.DownloadEvent
+import me.sweetll.tucao.rxdownload.entity.DownloadMission
 import me.sweetll.tucao.rxdownload.function.DownloadService
 
 class RxDownload {
@@ -18,6 +21,7 @@ class RxDownload {
     private var downloadService: DownloadService? = null
 
     private object Holder {
+        @SuppressLint("StaticFieldLeak")
         val INSTANCE = RxDownload()
     }
 
@@ -26,26 +30,29 @@ class RxDownload {
 
         fun getInstance(context: Context): RxDownload {
             instance.context = context.applicationContext
+            if (!instance.bound) instance.ensureBind().subscribe()
             return instance
         }
-
     }
 
     private fun ensureBind(): Observable<DownloadService> {
-        return Observable.create {
-            emitter ->
-            if (bound) {
-                emitter.onNext(downloadService)
-                emitter.onComplete()
-            } else {
+        if (bound)
+            return Observable.just(downloadService)
+        else
+            return Observable.create {
+                emitter ->
                 val intent = Intent(context, DownloadService::class.java)
-                context.startService(intent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
                 context.bindService(intent, object : ServiceConnection {
 
                     override fun onServiceConnected(name: ComponentName?, binder: IBinder) {
                         downloadService = (binder as DownloadService.DownloadBinder).getService()
                         bound = true
-                        emitter.onNext(downloadService)
+                        emitter.onNext(downloadService!!)
                         emitter.onComplete()
                     }
 
@@ -54,36 +61,42 @@ class RxDownload {
                     }
 
                 }, Context.BIND_AUTO_CREATE)
-            }
         }
     }
 
-    fun download(url: String, saveName: String, savePath: String, taskName: String, part: Part) {
+    fun download(mission: DownloadMission, part: Part) {
         ensureBind().subscribe({
             service ->
-            service.download(url, saveName, savePath, taskName, part)
+            service.download(mission, part)
         })
     }
 
-    fun pause(url: String) {
+    fun downloadDanmu(url: String, saveName: String, savePath: String) {
         ensureBind().subscribe {
             service ->
-            service.pause(url)
+            service.downloadDanmu(url, saveName, savePath)
         }
     }
 
-    fun cancel(url: String, delete: Boolean = true) {
+    fun pause(vid: String) {
         ensureBind().subscribe {
             service ->
-            service.cancel(url, delete)
+            service.pause(vid)
         }
     }
 
-    fun receive(url: String): Observable<DownloadEvent> {
+    fun cancel(vid: String, delete: Boolean = true) {
+        ensureBind().subscribe {
+            service ->
+            service.cancel(vid, delete)
+        }
+    }
+
+    fun receive(vid: String): Observable<DownloadEvent> {
         return ensureBind()
                 .flatMap {
                     service ->
-                    service.receive(url).toObservable()
+                    service.receive(vid).toObservable()
                 }
     }
 }

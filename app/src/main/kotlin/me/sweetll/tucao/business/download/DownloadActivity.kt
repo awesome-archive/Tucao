@@ -2,9 +2,9 @@ package me.sweetll.tucao.business.download
 
 import android.content.Context
 import android.content.Intent
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
 import android.os.Bundle
-import android.support.v7.widget.Toolbar
+import androidx.appcompat.widget.Toolbar
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -55,8 +55,8 @@ class DownloadActivity : BaseActivity() {
     override fun getToolbar(): Toolbar = binding.toolbar
 
     companion object {
-        const val ACTION_DOWNLOADED = "downloaded";
-        const val ACTION_DOWNLOADING = "downloading";
+        const val ACTION_DOWNLOADED = "downloaded"
+        const val ACTION_DOWNLOADING = "downloading"
 
         fun intentTo(context: Context) {
             val intent = Intent(context, DownloadActivity::class.java)
@@ -108,7 +108,7 @@ class DownloadActivity : BaseActivity() {
         }
     }
 
-    fun openContextMenu(contextMenuCallback: ContextMenuCallback) {
+    fun openContextMenu(contextMenuCallback: ContextMenuCallback, showUpdate: Boolean) {
         currentActionMode = startActionMode(modeCallback)
         currentContextMenuCallback = contextMenuCallback
         binding.pickAllBtn.setOnClickListener {
@@ -119,6 +119,17 @@ class DownloadActivity : BaseActivity() {
                 binding.pickAllBtn.text = "选择全部"
             }
         }
+        if (showUpdate) {
+            binding.divider1.visibility = View.VISIBLE
+            binding.updateBtn.visibility = View.VISIBLE
+            binding.updateBtn.setOnClickListener {
+                currentContextMenuCallback?.onClickUpdate()
+                currentActionMode?.finish()
+            }
+        } else {
+            binding.divider1.visibility = View.GONE
+            binding.updateBtn.visibility = View.GONE
+        }
         binding.deleteBtn.setOnClickListener {
             currentContextMenuCallback?.onClickDelete()
             currentActionMode?.finish()
@@ -127,6 +138,7 @@ class DownloadActivity : BaseActivity() {
 
     fun updateBottomMenu(deleteEnabled: Boolean, isPickAll: Boolean) {
         binding.deleteBtn.isEnabled = deleteEnabled
+        binding.updateBtn.isEnabled = deleteEnabled
         if (isPickAll) {
             binding.pickAllBtn.text = "取消全选"
         } else {
@@ -138,6 +150,8 @@ class DownloadActivity : BaseActivity() {
         fun onDestroyContextMenu()
 
         fun onClickDelete()
+
+        fun onClickUpdate() {}
 
         fun onClickPickAll(): Boolean
     }

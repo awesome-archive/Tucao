@@ -2,17 +2,18 @@ package me.sweetll.tucao.widget
 
 import android.content.Context
 import android.graphics.drawable.Drawable
-import android.support.annotation.DrawableRes
+import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
 
 class HorizontalDividerBuilder private constructor(private val context: Context) {
 
-    lateinit private var divider: Drawable
+    private lateinit var divider: Drawable
     private var drawFirstItemTop: Boolean = false
     private var leftPadding: Int = 0
     private var rightPadding: Int = 0
 
     fun setDivider(@DrawableRes dividerRes: Int): HorizontalDividerBuilder {
-        this.divider = context.resources.getDrawable(dividerRes)
+        this.divider = ContextCompat.getDrawable(context, dividerRes)!!
         return this
     }
 

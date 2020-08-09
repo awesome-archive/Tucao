@@ -1,17 +1,18 @@
 package me.sweetll.tucao.business.home.fragment
 
 import android.annotation.TargetApi
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
 import android.os.Build
 import android.os.Bundle
-import android.support.v4.app.ActivityOptionsCompat
-import android.support.v4.util.Pair
-import android.support.v7.widget.LinearLayoutManager
+import androidx.core.app.ActivityOptionsCompat
+import androidx.core.util.Pair
 import android.transition.ArcMotion
 import android.transition.ChangeBounds
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.transition.TransitionManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.listener.OnItemChildClickListener
 import me.sweetll.tucao.R
@@ -37,14 +38,22 @@ class AnimationFragment : BaseFragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_animation, container, false)
         binding.viewModel = viewModel
+        binding.loading.show()
         return binding.root
     }
 
-    override fun onViewCreated(view: View?, savedInstanceState: Bundle?) {
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        binding.swipeRefresh.isEnabled = false
         binding.swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.loadData()
+        }
+        binding.errorStub.setOnInflateListener {
+            _, inflated ->
+            inflated.setOnClickListener {
+                viewModel.loadData()
+            }
         }
         setupRecyclerView()
         loadWhenNeed()
@@ -66,20 +75,20 @@ class AnimationFragment : BaseFragment() {
             override fun onSimpleItemChildClick(adapter: BaseQuickAdapter<*, *>, view: View, position: Int) {
                 when (view.id) {
                     R.id.card_more -> {
-                        ChannelDetailActivity.intentTo(activity, view.tag as Int)
+                        ChannelDetailActivity.intentTo(activity!!, view.tag as Int)
                     }
                     R.id.card1, R.id.card2, R.id.card3, R.id.card4 -> {
                         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                            val coverImg = ((view as ViewGroup).getChildAt(0) as ViewGroup).getChildAt(0)
+                            val coverImg = (((view as ViewGroup).getChildAt(0) as ViewGroup).getChildAt(0) as ViewGroup).getChildAt(0)
                             val titleText = (view.getChildAt(0) as ViewGroup).getChildAt(1)
                             val p1: Pair<View, String> = Pair.create(coverImg, "cover")
                             val p2: Pair<View, String> = Pair.create(titleText, "bg")
                             val cover = titleText.tag as String
                             val options = ActivityOptionsCompat
-                                    .makeSceneTransitionAnimation(activity, p1, p2)
-                            VideoActivity.intentTo(activity, view.tag as String, cover, options.toBundle())
+                                    .makeSceneTransitionAnimation(activity!!, p1, p2)
+                            VideoActivity.intentTo(activity!!, view.tag as String, cover, options.toBundle())
                         } else {
-                            VideoActivity.intentTo(activity, view.tag as String)
+                            VideoActivity.intentTo(activity!!, view.tag as String)
                         }
                     }
                 }
@@ -94,8 +103,8 @@ class AnimationFragment : BaseFragment() {
         val arcMotion = ArcMotion()
         changeBounds.pathMotion = arcMotion
 
-        activity.window.sharedElementExitTransition = changeBounds
-        activity.window.sharedElementReenterTransition = null
+        activity!!.window.sharedElementExitTransition = changeBounds
+        activity!!.window.sharedElementReenterTransition = null
     }
 
     override fun setUserVisibleHint(isVisibleToUser: Boolean) {
@@ -110,11 +119,46 @@ class AnimationFragment : BaseFragment() {
     }
 
     fun loadAnimation(animation: Animation) {
-        isLoad = true
+        if (!isLoad) {
+            isLoad = true
+            TransitionManager.beginDelayedTransition(binding.swipeRefresh)
+            binding.swipeRefresh.isEnabled = true
+            binding.loading.visibility = View.GONE
+            if (binding.errorStub.isInflated) {
+                binding.errorStub.root.visibility = View.GONE
+            }
+            binding.animationRecycler.visibility = View.VISIBLE
+        }
+
         animationAdapter.setNewData(animation.recommends)
     }
 
+
+    fun loadError() {
+        if (!isLoad) {
+            TransitionManager.beginDelayedTransition(binding.swipeRefresh)
+            binding.loading.visibility = View.GONE
+            if (!binding.errorStub.isInflated) {
+                binding.errorStub.viewStub!!.visibility = View.VISIBLE
+            } else {
+                binding.errorStub.root.visibility = View.VISIBLE
+            }
+        }
+    }
+
     fun setRefreshing(isRefreshing: Boolean) {
-        binding.swipeRefresh.isRefreshing = isRefreshing
+        if (isLoad) {
+            binding.swipeRefresh.isRefreshing = isRefreshing
+        } else {
+            TransitionManager.beginDelayedTransition(binding.swipeRefresh)
+            binding.loading.visibility = if (isRefreshing) View.VISIBLE else View.GONE
+            if (isRefreshing) {
+                if (!binding.errorStub.isInflated) {
+                    binding.errorStub.viewStub!!.visibility = View.GONE
+                } else {
+                    binding.errorStub.root.visibility = View.GONE
+                }
+            }
+        }
     }
 }

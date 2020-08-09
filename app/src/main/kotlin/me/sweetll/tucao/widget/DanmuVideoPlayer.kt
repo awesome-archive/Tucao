@@ -2,16 +2,18 @@ package me.sweetll.tucao.widget
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Service
 import android.content.Context
-import android.content.pm.ActivityInfo
 import android.graphics.Color
-import android.support.v4.content.ContextCompat
-import android.support.v7.widget.SwitchCompat
+import android.os.Handler
+import android.os.Message
+import android.os.SystemClock
+import com.google.android.material.tabs.TabLayout
+import androidx.viewpager.widget.ViewPager
 import android.util.AttributeSet
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
@@ -34,8 +36,12 @@ import master.flame.danmaku.ui.widget.DanmakuView
 
 import me.sweetll.tucao.R
 import com.shuyu.gsyvideoplayer.utils.PlayerConfig
+import me.sweetll.tucao.base.BaseActivity
+import me.sweetll.tucao.business.video.adapter.SettingPagerAdapter
 import me.sweetll.tucao.extension.dp2px
-import me.sweetll.tucao.extension.logD
+import me.sweetll.tucao.extension.formatDanmuOpacityToFloat
+import me.sweetll.tucao.extension.formatDanmuSizeToFloat
+import me.sweetll.tucao.extension.formatDanmuSpeedToFloat
 
 class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     var loadText: TextView? = null
@@ -46,17 +52,11 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     lateinit var danmakuContainer: FrameLayout
     var danmakuView: DanmakuView? = null
 
-    lateinit var settingLayout: LinearLayout
+    lateinit var settingLayout: View
     lateinit var switchDanmu: TextView
     lateinit var settingButton: Button
-    lateinit var danmuOpacityText: TextView
-    lateinit var danmuOpacitySeek: SeekBar
-    lateinit var danmuSizeText: TextView
-    lateinit var danmuSizeSeek: SeekBar
-    lateinit var rotateSwitch: SwitchCompat
-
-    lateinit var speedSeek: BubbleSeekBar
-    lateinit var speedText: TextView
+    lateinit var settingTab: TabLayout
+    lateinit var settingPager: ViewPager
 
     lateinit var closeImg: ImageView
     lateinit var sendDanmuText: TextView
@@ -69,18 +69,39 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
     lateinit var jumpTimeText: TextView
     lateinit var jumpText: TextView
 
-    var danmuSizeProgress = PlayerConfig.loadDanmuSize() // 1.00 0.50~2.00
-    var danmuOpacityProgress = PlayerConfig.loadDanmuOpacity() // 100% 20%~100%
-
-    fun Int.formatDanmuSizeToString(): String = String.format("%.2f", this.formatDanmuSizeToFloat())
-    fun Int.formatDanmuSizeToFloat(): Float = (this + 50) / 100f
-
-    fun Int.formatDanmuOpacityToString(): String = String.format("%d%%", this + 20)
-    fun Int.formatDanmuOpacityToFloat(): Float = (this + 20) / 100f
-
     var mLastState = -1
     var needCorrectDanmu = false
     var isShowDanmu = true
+
+    companion object {
+        const val TAP = 1
+
+        const val DOUBLE_TAP_TIMEOUT = 250L
+        const val DOUBLE_TAP_MIN_TIME = 40L
+        const val DOUBLE_TAP_SLOP = 100L
+        const val DOUBLE_TAP_SLOP_SQUARE = DOUBLE_TAP_SLOP * DOUBLE_TAP_SLOP
+    }
+
+    private var isDoubleTapping = false
+    private var isStillDown = false
+    private var deferConfirmSingleTap = false
+    private var currentDownEvent: MotionEvent? = null
+    private var previousUpEvent: MotionEvent? = null
+
+    val gestureHandler = @SuppressLint("HandlerLeak")
+    object: Handler() {
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                TAP -> {
+                    if (!isStillDown) {
+                        onSingleTapConfirmed()
+                    } else {
+                        deferConfirmSingleTap = true
+                    }
+                }
+            }
+        }
+    }
 
     constructor(context: Context, fullFlag: Boolean?) : super(context, fullFlag)
 
@@ -122,7 +143,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     fun hideSetting() {
             settingLayout.animate()
-                .translationX((250f).dp2px())
+                .translationX((280f).dp2px())
                 .setDuration(200)
                 .setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator?) {
@@ -154,7 +175,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     fun hideJump() {
         jumpLinear.animate()
-            .translationX((-250f).dp2px())
+            .translationX((-280f).dp2px())
             .setDuration(400)
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator?) {
@@ -166,110 +187,43 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     // 重新修改弹幕样式
     fun configDanmuStyle() {
-        if (isIfCurrentIsFullscreen) {
-            danmuOpacityText.text = danmuOpacityProgress.formatDanmuOpacityToString()
-            danmuOpacitySeek.progress = danmuOpacityProgress
-
-            danmuSizeText.text = danmuSizeProgress.formatDanmuSizeToString()
-            danmuSizeSeek.progress = danmuSizeProgress
-        }
-
-        PlayerConfig.saveDanmuOpacity(danmuOpacityProgress)
-        PlayerConfig.saveDanmuSize(danmuSizeProgress)
-
-        danmakuContext?.setDanmakuTransparency(danmuOpacityProgress.formatDanmuOpacityToFloat())
-        danmakuContext?.setScaleTextSize(danmuSizeProgress.formatDanmuSizeToFloat())
+        danmakuContext?.setDanmakuTransparency(PlayerConfig.loadDanmuOpacity().formatDanmuOpacityToFloat())
+        danmakuContext?.setScaleTextSize(PlayerConfig.loadDanmuSize().formatDanmuSizeToFloat())
+        danmakuContext?.setScrollSpeedFactor(PlayerConfig.loadDanmuSpeed().formatDanmuSpeedToFloat())
     }
 
     private fun initView() {
         //初始化弹幕控件
-        danmakuContainer = findViewById(R.id.danmaku_container) as FrameLayout
+        danmakuContainer = findViewById(R.id.danmaku_container)
 
-        jumpLinear = findViewById(R.id.linear_jump) as LinearLayout
-        closeJumpImg = findViewById(R.id.img_close_jump) as ImageView
-        jumpTimeText = findViewById(R.id.text_jump_time) as TextView
-        jumpText = findViewById(R.id.text_jump) as TextView
+        jumpLinear = findViewById(R.id.linear_jump)
+        closeJumpImg = findViewById(R.id.img_close_jump)
+        jumpTimeText = findViewById(R.id.text_jump_time)
+        jumpText = findViewById(R.id.text_jump)
         if (!isIfCurrentIsFullscreen) {
-            loadText = findViewById(R.id.text_load) as TextView
+            loadText = findViewById(R.id.text_load)
         } else {
-            settingLayout = findViewById(R.id.setting_layout) as LinearLayout
-            danmuOpacityText = findViewById(R.id.text_danmu_opacity) as TextView
-            danmuOpacitySeek = findViewById(R.id.seek_danmu_opacity) as SeekBar
-            danmuSizeText = findViewById(R.id.text_danmu_size) as TextView
-            danmuSizeSeek = findViewById(R.id.seek_danmu_size) as SeekBar
-            rotateSwitch = findViewById(R.id.switch_rotate) as SwitchCompat
+            settingLayout = findViewById(R.id.setting_layout)
 
-            settingButton = findViewById(R.id.btn_setting) as Button
+            settingButton = findViewById(R.id.btn_setting)
             settingButton.visibility = View.VISIBLE
             settingButton.setOnClickListener {
                 showSetting()
             }
 
-            danmuOpacitySeek.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        danmuOpacityProgress = progress
-                        configDanmuStyle()
-                    }
-                }
+            settingPager = findViewById(R.id.pager_setting)
+            settingPager.adapter = SettingPagerAdapter(this)
+            settingPager.offscreenPageLimit = 3
 
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {
-
-                }
-
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-                }
-            })
-
-            danmuSizeSeek.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        danmuSizeProgress = progress
-                        configDanmuStyle()
-                    }
-                }
-
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {
-
-                }
-
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-                }
-            })
-
-            speedText = findViewById(R.id.text_speed) as TextView
-            speedSeek = findViewById(R.id.seek_speed) as BubbleSeekBar
-            speedSeek.configBuilder
-                    .min(0.5f)
-                    .max(2.0f)
-                    .progress(1.0f)
-                    .floatType()
-                    .trackColor(ContextCompat.getColor(context, R.color.white))
-                    .secondTrackColor(ContextCompat.getColor(context, R.color.colorPrimary))
-                    .sectionTextColor(ContextCompat.getColor(context, R.color.white))
-                    .thumbTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
-                    .thumbTextSize(18)
-                    .showThumbText()
-                    .sectionCount(3)
-                    .showSectionText()
-                    .sectionTextPosition(BubbleSeekBar.TextPosition.BELOW_SECTION_MARK)
-                    .autoAdjustSectionMark()
-                    .build()
-            speedSeek.onProgressChangedListener = object: BubbleSeekBar.OnProgressChangedListenerAdapter() {
-                override fun getProgressOnFinally(progress: Int, progressFloat: Float) {
-                    this@DanmuVideoPlayer.speed = progressFloat
-                    speedText.text = "$progressFloat"
-                }
-            }
+            settingTab = findViewById(R.id.tab_setting)
+            settingTab.setupWithViewPager(settingPager)
 
             // 顶部发送弹幕栏
-            sendDanmuText = findViewById(R.id.text_send_danmu) as TextView
-            sendDanmuLinear = findViewById(R.id.linear_send_danmu) as LinearLayout
-            danmuEdit = findViewById(R.id.edit_danmu) as EditText
-            sendDanmuImg = findViewById(R.id.img_send_danmu) as ImageView
-            closeImg = findViewById(R.id.img_close) as ImageView
+            sendDanmuText = findViewById(R.id.text_send_danmu)
+            sendDanmuLinear = findViewById(R.id.linear_send_danmu)
+            danmuEdit = findViewById(R.id.edit_danmu)
+            sendDanmuImg = findViewById(R.id.img_send_danmu)
+            closeImg = findViewById(R.id.img_close)
 
             sendDanmuText.setOnClickListener {
                 if (sendDanmuLinear.visibility == View.VISIBLE) {
@@ -283,7 +237,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
             }
 
             danmuEdit.setOnEditorActionListener {
-                v, actionId, event ->
+                _, _, _ ->
                 val danmuContent = danmuEdit.editableText.toString()
                 if (danmuContent.isNotEmpty()) {
                     sendDanmu(danmuContent)
@@ -314,7 +268,7 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
             it.visibility = View.VISIBLE
         }
 
-        switchDanmu = findViewById(R.id.switchDanmu) as TextView
+        switchDanmu = findViewById<TextView>(R.id.switchDanmu)
         switchDanmu.setOnClickListener {
             showDanmu(!isShowDanmu)
         }
@@ -343,14 +297,80 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     fun setOrientationUtils(orientationUtils: OrientationUtils) {
         mOrientationUtils = orientationUtils
+    }
 
-        if (isIfCurrentIsFullscreen) {
-            rotateSwitch.isChecked = mOrientationUtils.currentScreenType != ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            rotateSwitch.setOnCheckedChangeListener {
-                button, checked ->
-                mOrientationUtils.toggleLandReverse()
+    fun getOrientationUtils() = mOrientationUtils!!
+
+    override fun onTouch(v: View, event: MotionEvent): Boolean {
+        if (mIfCurrentIsFullscreen && mLockCurScreen && mNeedLockFull) {
+            return super.onTouch(v, event)
+        }
+
+        if (v.id == R.id.surface_container) {
+            when (event.action and MotionEvent.ACTION_MASK) {
+                MotionEvent.ACTION_DOWN -> {
+                    val hadTapMessage = gestureHandler.hasMessages(TAP)
+                    if (hadTapMessage) {
+                        gestureHandler.removeMessages(TAP)
+                    }
+
+                    if (currentDownEvent != null && previousUpEvent != null && hadTapMessage &&
+                            isConsideredDoubleTap(currentDownEvent!!, previousUpEvent!!, event)) {
+                        isDoubleTapping = true
+                    } else {
+                        gestureHandler.sendEmptyMessageDelayed(TAP, DOUBLE_TAP_TIMEOUT)
+                    }
+                    currentDownEvent?.recycle()
+                    currentDownEvent = MotionEvent.obtain(event)
+
+                    isStillDown = true
+                    deferConfirmSingleTap = false
+                }
+                MotionEvent.ACTION_UP -> {
+                    isStillDown = false
+                    if (isDoubleTapping) {
+                        onDoubleTap()
+                    } else if (deferConfirmSingleTap) {
+                        onSingleTapConfirmed()
+                    }
+                    previousUpEvent?.recycle()
+                    previousUpEvent = MotionEvent.obtain(event)
+                    isDoubleTapping = false
+                    deferConfirmSingleTap = false
+                }
             }
         }
+
+        return super.onTouch(v, event)
+    }
+
+    private fun isConsideredDoubleTap(firstDown: MotionEvent, firstUp: MotionEvent,
+                                      secondDown: MotionEvent): Boolean {
+        val deltaTime = secondDown.eventTime - firstUp.eventTime
+        if (deltaTime > DOUBLE_TAP_TIMEOUT || deltaTime < DOUBLE_TAP_MIN_TIME) {
+            return false
+        }
+
+        val deltaX = firstDown.x - secondDown.x
+        val deltaY = firstDown.y - secondDown.y
+        return (deltaX * deltaX + deltaY * deltaY < DOUBLE_TAP_SLOP_SQUARE)
+    }
+
+    private fun onDoubleTap() {
+        if (currentState == GSYVideoPlayer.CURRENT_STATE_PLAYING || currentState == GSYVideoPlayer.CURRENT_STATE_PAUSE) {
+            mStartButton.performClick()
+        }
+    }
+
+    private fun onSingleTapConfirmed() {
+        startDismissControlViewTimer()
+        if (!mChangePosition && !mChangeVolume && !mBrightness) {
+            onClickUiToggle()
+        }
+    }
+
+    override fun setUp(url: String): Boolean {
+        return super.setUp(if (url.startsWith("http")) "async:$url" else url)
     }
 
     fun setUpDanmu(uri: String) {
@@ -369,8 +389,9 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         danmakuContext!!.setDanmakuStyle(IDisplayer.DANMAKU_STYLE_STROKEN, 3f)
                 .setDuplicateMergingEnabled(false)
                 .preventOverlapping(overlappingEnablePair)
-                .setScaleTextSize(danmuSizeProgress.formatDanmuSizeToFloat())
-                .setDanmakuTransparency(danmuOpacityProgress.formatDanmuOpacityToFloat())
+                .setScaleTextSize(PlayerConfig.loadDanmuSize().formatDanmuSizeToFloat())
+                .setScrollSpeedFactor(PlayerConfig.loadDanmuSpeed().formatDanmuSpeedToFloat())
+                .setDanmakuTransparency(PlayerConfig.loadDanmuOpacity().formatDanmuOpacityToFloat())
 
         if (!mIfCurrentIsFullscreen) {
             val maxLinesPair = mapOf(BaseDanmaku.TYPE_SCROLL_RL to 5)
@@ -399,18 +420,13 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
                 }
                 danmakuView!!.start(currentPositionWhenPlaying.toLong())
                 if (currentState != GSYVideoPlayer.CURRENT_STATE_PLAYING) {
-                    danmakuView!!.postDelayed({
-                        danmakuView!!.pause()
-                    }, 32)
+                    danmakuView!!.pause()
                 }
             }
 
         })
-        danmakuView!!.bindClockProvider {
-            currentPositionWhenPlaying.toLong()
-        }
         danmakuView!!.prepare(danmuParser, danmakuContext)
-        danmakuView!!.enableDanmakuDrawingCache(false) // TODO: 改回true
+        danmakuView!!.enableDanmakuDrawingCache(true)
         configDanmuStyle()
     }
 
@@ -436,8 +452,6 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
         danmuUri?.let {
             player.showDanmu(isShowDanmu)
-            player.danmuSizeProgress = danmuSizeProgress
-            player.danmuOpacityProgress = danmuOpacityProgress
             player.setUpDanmu(it)
             player.configDanmuStyle()
         }
@@ -476,9 +490,6 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         gsyVideoPlayer?.let {
             (it as DanmuVideoPlayer)
             showDanmu(it.isShowDanmu)
-
-            danmuSizeProgress = it.danmuSizeProgress
-            danmuOpacityProgress = it.danmuOpacityProgress
 
             configDanmuStyle()
 
@@ -562,12 +573,12 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         }
         when (mCurrentState) {
             GSYVideoPlayer.CURRENT_STATE_PLAYING_BUFFERING_START, GSYVideoPlayer.CURRENT_STATE_PAUSE -> {
-                if (mLastState == GSYVideoPlayer.CURRENT_STATE_PLAYING || mLastState == -1) {
+                if (mLastState == mCurrentState) {
                     pauseDanmu()
                 }
             }
             GSYVideoPlayer.CURRENT_STATE_PLAYING  -> {
-                if (mLastState == GSYVideoPlayer.CURRENT_STATE_PAUSE || mLastState == GSYVideoPlayer.CURRENT_STATE_PLAYING_BUFFERING_START || mLastState == -1) {
+                if (mLastState != mCurrentState) {
                     resumeDanmu()
                 }
             }
@@ -579,10 +590,6 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
         super.onPrepared()
         // 隐藏状态栏
         CommonUtil.hideSupportActionBar(context, true, true)
-        // 隐藏LoadText
-        loadText?.let {
-            it.visibility = View.GONE
-        }
     }
 
     fun resumeDanmu() {
@@ -599,7 +606,6 @@ class DanmuVideoPlayer : PreviewGSYVideoPlayer {
 
     fun seekDanmu() {
         if (danmakuView != null && danmakuView!!.isPrepared) {
-            "seekDanmu".logD()
             danmakuView!!.seekTo(currentPositionWhenPlaying.toLong())
         }
     }

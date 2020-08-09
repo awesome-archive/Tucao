@@ -103,6 +103,7 @@ public class AndroidDisplayer extends AbsDisplayer<Canvas, Typeface> {
         private float scaleTextSize = 1.0f;
         private boolean isTextScaled = false;
         private int margin = 0;
+        private int allMarginTop = 0;
 
         public DisplayerConfig() {
             PAINT = new TextPaint();
@@ -204,7 +205,7 @@ public class AndroidDisplayer extends AbsDisplayer<Canvas, Typeface> {
 
             if (isTranslucent) {
                 if (stroke) {
-                    paint.setStyle(HAS_PROJECTION ? Style.FILL : Style.STROKE);
+                    paint.setStyle(HAS_PROJECTION ? Style.FILL : Style.FILL_AND_STROKE);
                     paint.setColor(danmaku.textShadowColor & 0x00FFFFFF);
                     int alpha = HAS_PROJECTION ? (int) (sProjectionAlpha * ((float) transparency / AlphaValue.MAX))
                             : transparency;
@@ -216,7 +217,7 @@ public class AndroidDisplayer extends AbsDisplayer<Canvas, Typeface> {
                 }
             } else {
                 if (stroke) {
-                    paint.setStyle(HAS_PROJECTION ? Style.FILL : Style.STROKE);
+                    paint.setStyle(HAS_PROJECTION ? Style.FILL : Style.FILL_AND_STROKE);
                     paint.setColor(danmaku.textShadowColor & 0x00FFFFFF);
                     int alpha = HAS_PROJECTION ? sProjectionAlpha : AlphaValue.MAX;
                     paint.setAlpha(alpha);
@@ -254,7 +255,7 @@ public class AndroidDisplayer extends AbsDisplayer<Canvas, Typeface> {
             HAS_STROKE = CONFIG_HAS_STROKE;
             HAS_SHADOW = CONFIG_HAS_SHADOW;
             HAS_PROJECTION = CONFIG_HAS_PROJECTION;
-            ANTI_ALIAS = fromWorkerThread && CONFIG_ANTI_ALIAS;
+            ANTI_ALIAS = CONFIG_ANTI_ALIAS;
         }
     }
 
@@ -338,6 +339,16 @@ public class AndroidDisplayer extends AbsDisplayer<Canvas, Typeface> {
     @Override
     public int getMargin() {
         return mDisplayConfig.margin;
+    }
+
+    @Override
+    public void setAllMarginTop(int m) {
+        mDisplayConfig.allMarginTop = m;
+    }
+
+    @Override
+    public int getAllMarginTop() {
+        return mDisplayConfig.allMarginTop;
     }
 
     public Canvas canvas;
@@ -472,7 +483,7 @@ public class AndroidDisplayer extends AbsDisplayer<Canvas, Typeface> {
         camera.rotateY(-danmaku.rotationY);
         camera.rotateZ(-danmaku.rotationZ);
         camera.getMatrix(matrix);
-//        matrix.preTranslate(-left, -top);
+        matrix.preTranslate(-left, -top);
         matrix.postTranslate(left , top);
         camera.restore();
         int count = canvas.save();

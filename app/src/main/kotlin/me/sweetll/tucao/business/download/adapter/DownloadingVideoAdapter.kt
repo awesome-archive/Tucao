@@ -6,12 +6,13 @@ import android.widget.LinearLayout
 import com.chad.library.adapter.base.BaseMultiItemQuickAdapter
 import com.chad.library.adapter.base.BaseViewHolder
 import com.chad.library.adapter.base.entity.MultiItemEntity
+import com.trello.rxlifecycle2.kotlin.bindToLifecycle
 import io.reactivex.android.schedulers.AndroidSchedulers
 import me.sweetll.tucao.R
 import me.sweetll.tucao.business.download.DownloadActivity
-import me.sweetll.tucao.business.download.model.Part
-import me.sweetll.tucao.business.download.model.StateController
-import me.sweetll.tucao.business.download.model.Video
+import me.sweetll.tucao.model.json.Part
+import me.sweetll.tucao.model.json.StateController
+import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.extension.DownloadHelpers
 import me.sweetll.tucao.extension.load
@@ -42,15 +43,15 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
             TYPE_VIDEO -> {
                 val video = item as Video
                 helper.setText(R.id.text_title, video.title)
-                helper.setVisible(R.id.text_size, false)
+                helper.setGone(R.id.text_size, false)
                 val thumbImg = helper.getView<ImageView>(R.id.img_thumb)
                 thumbImg.load(mContext, video.thumb)
 
-                helper.setVisible(R.id.checkbox, video.checkable)
+                helper.setGone(R.id.checkbox, video.checkable)
                 val checkBox = helper.getView<CheckBox>(R.id.checkbox)
                 checkBox.isChecked = video.checked
                 checkBox.setOnCheckedChangeListener {
-                    compoundButton, checked ->
+                    _, checked ->
                     video.checked = checked
                     updateMenu()
                 }
@@ -81,45 +82,38 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
                 val part = item as Part
                 part.stateController = StateController(helper.getView(R.id.text_size), helper.getView(R.id.img_status), helper.getView(R.id.progress))
                 helper.setText(R.id.text_title, part.title)
-                part.durls.forEach {
-                    durl ->
-                    rxDownload.receive(durl.url)
-                            .sample(500, TimeUnit.MILLISECONDS)
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe({
-                                (status, downloadSize, totalSize) ->
+                rxDownload.receive(part.vid)
+                        .bindToLifecycle(downloadActivity)
+                        .sample(500, TimeUnit.MILLISECONDS)
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe({
+                            (status, downloadSize, totalSize) ->
 
-                                durl.flag = status
-                                durl.downloadSize = downloadSize
-                                durl.totalSize = totalSize
+                            "接收下载状态....".logD()
 
-                                part.update()
+                            val newEvent = DownloadEvent(status, downloadSize, totalSize)
 
-                                val newEvent = DownloadEvent(part.flag, part.downloadSize, part.totalSize)
-
-                                if (part.flag == DownloadStatus.COMPLETED) {
+                            if (part.flag == DownloadStatus.COMPLETED) {
 //                                    DownloadHelpers.saveDownloadPart(part)
-                                } else {
-                                    part.stateController?.setEvent(newEvent)
-                                }
-                            }, {
-                                error ->
-                                error.printStackTrace()
-                                error.message?.toast()
-                            })
-                }
+                            } else {
+                                part.stateController?.setEvent(newEvent)
+                            }
+                        }, {
+                            error ->
+                            error.printStackTrace()
+                            error.message?.toast()
+                        })
 
-                helper.setVisible(R.id.checkbox, part.checkable)
+                helper.setGone(R.id.checkbox, part.checkable)
                 val checkBox = helper.getView<CheckBox>(R.id.checkbox)
                 checkBox.isChecked = part.checked
                 checkBox.setOnCheckedChangeListener {
-                    compoundButton, checked ->
+                    _, checked ->
                     part.checked = checked
                     updateMenu()
                 }
 
                 helper.itemView.setOnClickListener {
-                    view ->
                     if (part.checkable) {
                         checkBox.isChecked = !checkBox.isChecked
                         val parentVideo = data.find {
@@ -140,7 +134,7 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
                         } as Video
                         val callback = object : DownloadHelpers.Callback {
                             override fun startDownload() {
-                                DownloadHelpers.startDownload(parentVideo, part)
+                                DownloadHelpers.resumeDownload(parentVideo, part)
                             }
 
                             override fun pauseDownload() {
@@ -172,4 +166,8 @@ class DownloadingVideoAdapter(val downloadActivity: DownloadActivity, data: Muta
         downloadActivity.updateBottomMenu(deleteEnabled, isPickAll)
     }
 
+    override fun getItemViewType(position: Int): Int {
+        val type =  super.getItemViewType(position)
+        return type
+    }
 }

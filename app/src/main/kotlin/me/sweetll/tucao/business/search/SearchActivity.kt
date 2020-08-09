@@ -6,18 +6,13 @@ import android.annotation.TargetApi
 import android.app.SharedElementCallback
 import android.content.Context
 import android.content.Intent
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
 import android.graphics.Point
 import android.os.Build
 import android.os.Bundle
-import android.support.annotation.TransitionRes
-import android.support.v4.app.ActivityOptionsCompat
-import android.support.v7.widget.LinearLayoutManager
-import android.support.v4.util.Pair
-import android.transition.Transition
-import android.transition.TransitionInflater
-import android.transition.TransitionManager
-import android.transition.TransitionSet
+import androidx.core.app.ActivityOptionsCompat
+import androidx.core.util.Pair
+import android.transition.*
 import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +21,9 @@ import android.view.animation.ScaleAnimation
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
+import androidx.annotation.TransitionRes
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.listener.OnItemChildClickListener
 import com.chad.library.adapter.base.listener.OnItemClickListener
@@ -33,13 +31,13 @@ import me.sweetll.tucao.Const
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
 import me.sweetll.tucao.business.channel.adapter.VideoAdapter
+import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.search.adapter.SearchHistoryAdapter
 import me.sweetll.tucao.business.search.viewmodel.SearchViewModel
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.databinding.ActivitySearchBinding
 import me.sweetll.tucao.extension.HistoryHelpers
 import me.sweetll.tucao.extension.toast
-import me.sweetll.tucao.model.json.Result
 import me.sweetll.tucao.transition.CircularReveal
 import me.sweetll.tucao.util.TransitionUtils
 import me.sweetll.tucao.widget.DisEditText
@@ -66,8 +64,6 @@ class SearchActivity : BaseActivity() {
         }
     }
 
-    override fun getStatusBar(): View = binding.statusBar
-
     override fun initView(savedInstanceState: Bundle?) {
         val keyword = intent.getStringExtra(ARG_KEYWORD)
         var tid: Int? = intent.getIntExtra(ARG_TID, 0)
@@ -78,7 +74,7 @@ class SearchActivity : BaseActivity() {
         binding.viewModel = viewModel
 
         binding.searchEdit.setOnEditorActionListener {
-            view, actionId, event ->
+            view, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 viewModel.onClickSearch(view)
                 view.clearFocus()
@@ -125,6 +121,9 @@ class SearchActivity : BaseActivity() {
                 binding.searchEdit.requestFocus()
                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showSoftInput(binding.searchEdit, 0)
+
+                TransitionManager.beginDelayedTransition(binding.root as ViewGroup)
+                binding.searchResults.visibility = View.VISIBLE
             }
 
             override fun onTransitionResume(transition: Transition?) {
@@ -146,7 +145,7 @@ class SearchActivity : BaseActivity() {
         })
     }
 
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @TargetApi(Build.VERSION_CODES.KITKAT)
     private fun getTransition(@TransitionRes transitionId: Int): Transition {
         var transition = transitions.get(transitionId)
         if (transition == null) {
@@ -157,26 +156,26 @@ class SearchActivity : BaseActivity() {
     }
 
     fun setupRecyclerView() {
-        videoAdapter.setOnLoadMoreListener {
+        videoAdapter.setOnLoadMoreListener ({
             viewModel.loadMoreData()
-        }
+        }, binding.searchRecycler)
 
-        binding.searchRecycler.addOnItemTouchListener(object: OnItemClickListener() {
-            override fun onSimpleItemClick(helper: BaseQuickAdapter<*, *>, view: View, position: Int) {
-                val result = helper.getItem(position) as Result
+        videoAdapter.setOnItemClickListener {
+            helper, view, position ->
+                val video = helper.getItem(position) as Video
                 if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val coverImg = view.findViewById(R.id.img_thumb) as ImageView
-                    val titleText = view.findViewById(R.id.text_title)
+                    val coverImg = view.findViewById<ImageView>(R.id.img_thumb)
+                    val titleText = view.findViewById<View>(R.id.text_title)
                     val p1: Pair<View, String> = Pair.create(coverImg, "cover")
                     val cover = titleText.tag as String
                     val options = ActivityOptionsCompat
                             .makeSceneTransitionAnimation(this@SearchActivity, p1)
-                    VideoActivity.intentTo(this@SearchActivity, result, cover, options.toBundle())
+                    VideoActivity.intentTo(this@SearchActivity, video, cover, options.toBundle())
                 } else {
-                    VideoActivity.intentTo(this@SearchActivity, result)
+                    VideoActivity.intentTo(this@SearchActivity, video)
                 }
-            }
-        })
+        }
+
         binding.searchRecycler.layoutManager = LinearLayoutManager(this)
         binding.searchRecycler.adapter = videoAdapter
         binding.searchRecycler.addItemDecoration(
@@ -187,15 +186,15 @@ class SearchActivity : BaseActivity() {
 
         binding.historyRecycler.addOnItemTouchListener(object: OnItemClickListener() {
             override fun onSimpleItemClick(helper: BaseQuickAdapter<*, *>, view: View, position: Int) {
-                val result = helper.getItem(position) as Result
-                viewModel.searchText.set(result.title)
+                val video = helper.getItem(position) as Video
+                viewModel.searchText.set(video.title)
                 viewModel.onClickSearch(view)
             }
         })
         binding.historyRecycler.addOnItemTouchListener(object: OnItemChildClickListener() {
             override fun onSimpleItemChildClick(helper: BaseQuickAdapter<*, *>, view: View, position: Int) {
                 if (view.id == R.id.img_delete) {
-                    val result = helper.getItem(position) as Result
+                    val result = helper.getItem(position) as Video
                     val removedIndex = HistoryHelpers.removeSearchHistory(result)
                     searchHistoryAdapter.remove(removedIndex)
                 }
@@ -215,7 +214,7 @@ class SearchActivity : BaseActivity() {
         videoAdapter.setNewData(mutableListOf())
     }
 
-    fun loadData(data: MutableList<Result>) {
+    fun loadData(data: MutableList<Video>) {
         videoAdapter.setNewData(data)
         if (data.size < viewModel.pageSize) {
             videoAdapter.setEnableLoadMore(false)
@@ -225,14 +224,14 @@ class SearchActivity : BaseActivity() {
         }
     }
 
-    fun loadMoreData(data: MutableList<Result>?, flag: Int) {
+    fun loadMoreData(data: MutableList<Video>?, flag: Int) {
         when (flag) {
             Const.LOAD_MORE_COMPLETE -> {
-                videoAdapter.addData(data)
+                videoAdapter.addData(data!!)
                 videoAdapter.loadMoreComplete()
             }
             Const.LOAD_MORE_END -> {
-                videoAdapter.addData(data)
+                videoAdapter.addData(data!!)
                 videoAdapter.loadMoreEnd()
             }
             Const.LOAD_MORE_FAIL -> {
@@ -241,14 +240,19 @@ class SearchActivity : BaseActivity() {
         }
     }
 
-    fun loadHistory(histories: MutableList<Result>) {
+    fun loadHistory(histories: MutableList<Video>) {
         searchHistoryAdapter.setNewData(histories)
     }
 
     fun setRefreshing(refreshing: Boolean) {
-        TransitionManager.beginDelayedTransition(
-                binding.root as ViewGroup, getTransition(R.transition.auto)
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            val autoTransition = AutoTransition()
+            autoTransition.interpolator = FastOutSlowInInterpolator()
+            autoTransition.duration = 300
+            TransitionManager.beginDelayedTransition(
+                    binding.root as ViewGroup, autoTransition
+            )
+        }
         if (refreshing) {
             binding.progress.visibility = View.VISIBLE
             binding.searchResults.visibility = View.GONE

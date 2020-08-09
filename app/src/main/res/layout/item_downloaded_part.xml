@@ -44,7 +44,9 @@
                 android:layout_weight="1"
                 android:textColor="@color/secondary_text"
                 android:textSize="14sp"
-                tools:text="P1" />
+                android:maxLines="1"
+                android:ellipsize="end"
+                tools:text="裙下有野兽啦啦啦啦" />
 
             <TextView
                 android:id="@+id/text_size"

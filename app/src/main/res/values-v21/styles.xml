@@ -2,12 +2,16 @@
 <resources>
     <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorPrimary</item>
         <item name="windowActionModeOverlay">true</item>
         <item name="android:actionModeBackground">@color/colorPrimary</item>
         <!--透明状态栏-->
         <item name="android:windowTranslucentStatus">true</item>
         <!--Transition-->
         <item name="android:windowContentTransitions">true</item>
+        <!--按钮颜色-->
+        <item name="android:colorButtonNormal">@color/login_button</item>
     </style>
 
     <style name="Translucent.Search" parent="AppTheme">
@@ -27,6 +31,34 @@
         <item name="android:windowReturnTransition">@transition/search_return</item>
         <item name="android:windowSharedElementEnterTransition">@transition/search_shared_enter</item>
         <item name="android:windowSharedElementReturnTransition">@transition/search_shared_return</item>
+    </style>
+
+    <style name="Translucent.Login" parent="AppTheme">
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowAllowEnterTransitionOverlap">true</item>
+        <item name="android:windowAllowReturnTransitionOverlap">true</item>
+        <item name="android:windowSharedElementsUseOverlay">false</item>
+
+        <item name="android:windowAnimationStyle">@android:style/Animation</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowBackground">@color/scrim</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowIsFloating">false</item> <!-- 不让窗口缩小到中间 -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <style name="Me.Sweetll.Comments" parent="AppTheme">
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowSharedElementEnterTransition">@transition/comments_shared_enter</item>
+    </style>
+
+    <style name="Me.Sweetll.Drrr" parent="AppTheme">
+        <item name="android:windowTranslucentStatus">false</item>
+    </style>
+
+    <style name="Me.Sweetll.Message" parent="AppTheme">
+        <item name="android:windowTranslucentStatus">false</item>
     </style>
 
 </resources>

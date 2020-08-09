@@ -42,6 +42,8 @@ import master.flame.danmaku.danmaku.parser.BaseDanmakuParser;
 import master.flame.danmaku.danmaku.renderer.IRenderer.RenderingState;
 import master.flame.danmaku.danmaku.util.SystemClock;
 
+import static android.R.attr.x;
+
 public class DanmakuSurfaceView extends SurfaceView implements IDanmakuView, IDanmakuViewController, SurfaceHolder.Callback {
 
     public static final String TAG = "DanmakuSurfaceView";
@@ -59,6 +61,10 @@ public class DanmakuSurfaceView extends SurfaceView implements IDanmakuView, IDa
     private boolean mEnableDanmakuDrwaingCache = true;
 
 	private OnDanmakuClickListener mOnDanmakuClickListener;
+
+    private float mXOff;
+
+    private float mYOff;
 
     private DanmakuTouchHelper mTouchHelper;
     
@@ -376,6 +382,16 @@ public class DanmakuSurfaceView extends SurfaceView implements IDanmakuView, IDa
     }
 
     @Override
+    public int getViewWidth() {
+        return super.getWidth();
+    }
+
+    @Override
+    public int getViewHeight() {
+        return super.getHeight();
+    }
+
+    @Override
     public View getView() {
         return this;
     }
@@ -418,8 +434,30 @@ public class DanmakuSurfaceView extends SurfaceView implements IDanmakuView, IDa
     }
 
     @Override
+    public void setOnDanmakuClickListener(OnDanmakuClickListener listener, float xOff, float yOff) {
+        mOnDanmakuClickListener = listener;
+        mXOff = xOff;
+        mYOff = yOff;
+    }
+
+    @Override
     public OnDanmakuClickListener getOnDanmakuClickListener() {
         return mOnDanmakuClickListener;
+    }
+
+    @Override
+    public float getXOff() {
+        return mXOff;
+    }
+
+    @Override
+    public float getYOff() {
+        return mYOff;
+    }
+
+    @Override
+    public void forceRender() {
+
     }
 
     @Override

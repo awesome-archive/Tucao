@@ -85,11 +85,11 @@ public class DanmakuUtils {
     }
 
     public static DrawingCache buildDanmakuDrawingCache(BaseDanmaku danmaku, IDisplayer disp,
-            DrawingCache cache) {
+            DrawingCache cache, int bitsPerPixel) {
         if (cache == null)
             cache = new DrawingCache();
 
-        cache.build((int) Math.ceil(danmaku.paintWidth), (int) Math.ceil(danmaku.paintHeight), disp.getDensityDpi(), false);
+        cache.build((int) Math.ceil(danmaku.paintWidth), (int) Math.ceil(danmaku.paintHeight), disp.getDensityDpi(), false, bitsPerPixel);
         DrawingCacheHolder holder = cache.get();
         if (holder != null) {
             ((AbsDisplayer) disp).drawDanmaku(danmaku, holder.canvas, 0, 0, true);
@@ -101,8 +101,8 @@ public class DanmakuUtils {
         return cache;
     }
 
-    public static int getCacheSize(int w, int h) {
-        return (w) * (h) * 4;
+    public static int getCacheSize(int w, int h, int bytesPerPixel) {
+        return (w) * (h) * bytesPerPixel;
     }
     
     public final static boolean isDuplicate(BaseDanmaku obj1, BaseDanmaku obj2) {
@@ -145,31 +145,7 @@ public class DanmakuUtils {
         } else if (val < 0) {
             return -1;
         }
-
-        int result = obj1.getType() - obj2.getType();
-        if (result > 0) {
-            return 1;
-        } else if (result < 0) {
-            return -1;
-        }
-
-        if (obj1.text == null) {
-            return -1;
-        }
-        if (obj2.text == null) {
-            return 1;
-        }
-
-        int r = obj1.text.toString().compareTo(obj2.text.toString());
-        if (r != 0) {
-            return r;
-        }
-
-        r = obj1.textColor - obj2.textColor;
-        if (r != 0)
-            return r < 0 ? -1 : 1;
-
-        r = obj1.index - obj2.index;
+        int r = obj1.index - obj2.index;
         if (r != 0)
             return r < 0 ? -1 : 1;
 

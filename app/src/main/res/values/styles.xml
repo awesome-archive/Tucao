@@ -2,8 +2,19 @@
 <resources>
     <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorPrimary</item>
         <item name="windowActionModeOverlay">true</item>
         <item name="android:actionModeBackground">@color/colorPrimary</item>
+        <!--按钮颜色-->
+        <item name="colorButtonNormal">@color/login_button</item>
+    </style>
+    
+    <style name="SplashTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@drawable/splash_screen</item>
     </style>
 
     <style name="Translucent.Search" parent="AppTheme">
@@ -14,6 +25,27 @@
         <item name="android:windowIsFloating">false</item> <!-- 不让窗口缩小到中间 -->
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <style name="Translucent.Login" parent="AppTheme">
+        <item name="colorButtonNormal">@color/login_button</item>
+        <!--按钮背景颜色-->
+        <item name="android:windowAnimationStyle">@android:style/Animation</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowBackground">@color/scrim</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowIsFloating">false</item> <!-- 不让窗口缩小到中间 -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <style name="Me.Sweetll.Comments" parent="AppTheme">
+    </style>
+
+    <style name="Me.Sweetll.Drrr" parent="AppTheme">
+    </style>
+
+    <style name="Me.Sweetll.Message" parent="AppTheme">
     </style>
 
     <style name="AboutTheme" parent="Theme.AppCompat.Light.DarkActionBar">
@@ -50,4 +82,15 @@
         <!-- inactive track color (30% transparency) -->
         <item name="android:colorForeground">#42221F1F</item>
     </style>
+
+    <style name="PinkEdit">
+        <item name="colorControlNormal">@color/pink_300</item>
+    </style>
+
+    <style name="AVLoadingIndicatorView">
+        <item name="radius">12dp</item>
+        <item name="borderWidth">2dp</item>
+        <item name="circleSpacing">4dp</item>
+    </style>
+
 </resources>

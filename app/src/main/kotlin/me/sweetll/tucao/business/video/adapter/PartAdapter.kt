@@ -1,13 +1,13 @@
 package me.sweetll.tucao.business.video.adapter
 
-import android.support.v4.content.ContextCompat
+import androidx.core.content.ContextCompat
 import android.view.View
 import android.widget.CheckedTextView
 import android.widget.ImageView
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.BaseViewHolder
 import me.sweetll.tucao.R
-import me.sweetll.tucao.business.download.model.Part
+import me.sweetll.tucao.model.json.Part
 import me.sweetll.tucao.rxdownload.entity.DownloadStatus
 
 class PartAdapter(data: MutableList<Part>?) : BaseQuickAdapter<Part, BaseViewHolder>(R.layout.item_part, data) {
@@ -33,7 +33,7 @@ class PartAdapter(data: MutableList<Part>?) : BaseQuickAdapter<Part, BaseViewHol
             downloadingImg.visibility = View.GONE
         }
 
-        if (part.hasPlay) {
+        if (part.hadPlay) {
             titleText.setTextColor(ContextCompat.getColor(mContext, R.color.selector_part2))
         } else {
             titleText.setTextColor(ContextCompat.getColor(mContext, R.color.selector_part))

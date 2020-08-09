@@ -2,12 +2,12 @@ package me.sweetll.tucao.business.browser
 
 import android.content.Context
 import android.content.Intent
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
 import android.os.Bundle
-import android.support.v7.widget.Toolbar
 import android.view.KeyEvent
 import android.view.View
 import android.webkit.*
+import androidx.appcompat.widget.Toolbar
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
 import me.sweetll.tucao.databinding.ActivityBrowserBinding
@@ -67,9 +67,7 @@ class BrowserActivity : BaseActivity() {
 
     override fun initToolbar() {
         super.initToolbar()
-        supportActionBar?.let {
-            it.setDisplayHomeAsUpEnabled(true)
-        }
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
     }
 
 }

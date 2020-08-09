@@ -1,27 +1,26 @@
 package me.sweetll.tucao.business.home
 
-import android.content.Context
-import android.content.Intent
-import android.databinding.DataBindingUtil
+import android.app.Activity
+import androidx.databinding.DataBindingUtil
 import android.graphics.Canvas
 import android.os.Bundle
-import android.support.v7.widget.LinearLayoutManager
-import android.support.v7.widget.RecyclerView
-import android.support.v7.widget.Toolbar
-import android.support.v7.widget.helper.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.widget.Toolbar
 import android.view.View
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.callback.ItemDragAndSwipeCallback
 import com.chad.library.adapter.base.listener.OnItemClickListener
 import com.chad.library.adapter.base.listener.OnItemSwipeListener
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
-import me.sweetll.tucao.business.home.adapter.PlayHistoryAdapter
+import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.home.adapter.StarAdapter
 import me.sweetll.tucao.business.video.VideoActivity
 import me.sweetll.tucao.databinding.ActivityStarBinding
 import me.sweetll.tucao.extension.HistoryHelpers
-import me.sweetll.tucao.model.json.Result
+import org.jetbrains.anko.startActivity
 
 class StarActivity : BaseActivity() {
     lateinit var binding: ActivityStarBinding
@@ -33,9 +32,8 @@ class StarActivity : BaseActivity() {
     override fun getToolbar(): Toolbar = binding.toolbar
 
     companion object {
-        fun intentTo(context: Context) {
-            val intent = Intent(context, StarActivity::class.java)
-            context.startActivity(intent)
+        fun intentTo(activity: Activity) {
+            activity.startActivity<StarActivity>()
         }
     }
 
@@ -60,7 +58,7 @@ class StarActivity : BaseActivity() {
             }
 
             override fun onItemSwiped(p0: RecyclerView.ViewHolder?, position: Int) {
-                val result = starAdapter.getItem(position)
+                val result = starAdapter.getItem(position)!!
                 HistoryHelpers.removePlayHistory(result)
             }
 
@@ -71,8 +69,8 @@ class StarActivity : BaseActivity() {
         })
         binding.starRecycler.addOnItemTouchListener(object: OnItemClickListener() {
             override fun onSimpleItemClick(helper: BaseQuickAdapter<*, *>, view: View?, position: Int) {
-                val result = helper.getItem(position) as Result
-                VideoActivity.intentTo(this@StarActivity, result)
+                val video = helper.getItem(position) as Video
+                VideoActivity.intentTo(this@StarActivity, video)
             }
         })
         binding.starRecycler.layoutManager = LinearLayoutManager(this)

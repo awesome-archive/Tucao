@@ -57,6 +57,8 @@
     public static ** valueOf(java.lang.String);
 }
 
+-dontwarn javax.annotation.**
+
 # 保留我们自定义控件（继承自View）不被混淆
 -keep public class * extends android.view.View {
     *** get*();
@@ -129,9 +131,13 @@
 -dontwarn java.nio.file.*
 -dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
 
-# Gson
--keep class sun.misc.Unsafe { *; }
--keep class com.google.gson.stream.** { *; }
+# Moshi
+-dontwarn okio.**
+-dontwarn javax.annotation.Nullable
+-dontwarn javax.annotation.ParametersAreNonnullByDefault
+-keepclasseswithmembers class * {
+    @com.squareup.moshi.* <methods>;
+}
 
 # Parcels
 -keep class * implements android.os.Parcelable {
@@ -203,9 +209,10 @@
 
 # Glide
 -keep public class * implements com.bumptech.glide.module.GlideModule
--keep public enum com.bumptech.glide.load.resource.bitmap.ImageHeaderParser$** {
-    **[] $VALUES;
-    public *;
+-keep public class * extends com.bumptech.glide.module.AppGlideModule
+-keep public enum com.bumptech.glide.load.ImageHeaderParser$** {
+  **[] $VALUES;
+  public *;
 }
 
 # DBFlow

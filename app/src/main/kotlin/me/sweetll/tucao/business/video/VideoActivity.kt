@@ -4,38 +4,41 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.annotation.TargetApi
 import android.app.SharedElementCallback
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.databinding.DataBindingUtil
+import androidx.databinding.DataBindingUtil
 import android.os.Build
 import android.os.Bundle
-import android.support.v4.view.ViewCompat
-import android.support.v4.view.animation.FastOutSlowInInterpolator
+import androidx.core.view.ViewCompat
 import android.text.format.DateFormat
 import android.transition.*
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
+import androidx.annotation.RequiresApi
+import androidx.appcompat.widget.Toolbar
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
+import com.google.android.material.appbar.AppBarLayout
 import com.shuyu.gsyvideoplayer.GSYPreViewManager
 import com.shuyu.gsyvideoplayer.GSYVideoManager
 import com.shuyu.gsyvideoplayer.GSYVideoPlayer
 import com.shuyu.gsyvideoplayer.model.VideoOptionModel
 import com.shuyu.gsyvideoplayer.utils.GSYVideoType
 import com.shuyu.gsyvideoplayer.utils.OrientationUtils
+import com.shuyu.gsyvideoplayer.utils.PlayerConfig
 import com.shuyu.gsyvideoplayer.video.StandardGSYVideoPlayer
-import me.sweetll.tucao.AppApplication
 import me.sweetll.tucao.R
 import me.sweetll.tucao.base.BaseActivity
-import me.sweetll.tucao.business.download.model.Part
+import me.sweetll.tucao.model.json.Part
+import me.sweetll.tucao.model.json.Video
 import me.sweetll.tucao.business.video.adapter.StandardVideoAllCallBackAdapter
 import me.sweetll.tucao.business.video.adapter.VideoPagerAdapter
 import me.sweetll.tucao.business.video.viewmodel.VideoViewModel
 import me.sweetll.tucao.databinding.ActivityVideoBinding
 import me.sweetll.tucao.extension.*
-import me.sweetll.tucao.model.json.Result
 import me.sweetll.tucao.model.xml.Durl
 import me.sweetll.tucao.rxdownload.entity.DownloadStatus
 import me.sweetll.tucao.widget.DanmuVideoPlayer
@@ -55,24 +58,26 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     var transitionIn = true
 
-    lateinit var result: Result
+    lateinit var video: Video
     lateinit var selectedPart: Part
     var firstPlay = true
 
+    override fun getToolbar(): Toolbar = binding.toolbar
+
     companion object {
-        private val ARG_RESULT = "result"
+        private val ARG_VIDEO = "video"
         private val ARG_HID = "hid"
         private val ARG_COVER = "cover"
 
-        fun intentTo(context: Context, result: Result) {
+        fun intentTo(context: Context, video: Video) {
             val intent = Intent(context, VideoActivity::class.java)
-            intent.putExtra(ARG_RESULT, result)
+            intent.putExtra(ARG_VIDEO, video)
             context.startActivity(intent)
         }
 
-        fun intentTo(context: Context, result: Result, cover: String, bundle: Bundle) {
+        fun intentTo(context: Context, video: Video, cover: String, bundle: Bundle?) {
             val intent = Intent(context, VideoActivity::class.java)
-            intent.putExtra(ARG_RESULT, result)
+            intent.putExtra(ARG_VIDEO, video)
             intent.putExtra(ARG_COVER, cover)
             context.startActivity(intent, bundle)
         }
@@ -83,7 +88,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             context.startActivity(intent)
         }
 
-        fun intentTo(context: Context, hid: String, cover: String, bundle: Bundle) {
+        fun intentTo(context: Context, hid: String, cover: String, bundle: Bundle?) {
             val intent = Intent(context, VideoActivity::class.java)
             intent.putExtra(ARG_HID, hid)
             intent.putExtra(ARG_COVER, cover)
@@ -92,6 +97,8 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
     }
 
     override fun initView(savedInstanceState: Bundle?) {
+        Log.d("FFF", "[debug video] onCreate")
+
         binding = DataBindingUtil.setContentView(this, R.layout.activity_video)
         val hid = intent.getStringExtra(ARG_HID)
         val cover = intent.getStringExtra(ARG_COVER)
@@ -103,26 +110,26 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
         if (hid != null) {
             viewModel = VideoViewModel(this)
-            viewModel.queryResult(hid)
+            viewModel.queryVideo(hid)
         } else {
-            val result: Result = intent.getParcelableExtra(ARG_RESULT)
-            viewModel = VideoViewModel(this, result)
-            loadResult(result)
+            val video: Video = intent.getParcelableExtra(ARG_VIDEO)
+            viewModel = VideoViewModel(this, video)
+            loadVideo(video)
         }
 
         if (!cover.isNullOrEmpty()) {
             val thumbImg = ImageView(this)
-            thumbImg.scaleType = ImageView.ScaleType.FIT_XY
-            ViewCompat.setTransitionName(thumbImg, "cover")
+            thumbImg.scaleType = ImageView.ScaleType.CENTER_CROP
+            ViewCompat.setTransitionName(thumbImg, "cover");
             binding.player.setThumbImageView(thumbImg)
 
             ViewCompat.setTransitionName(binding.mainLinear, "bg")
 
             initTransition()
             supportPostponeEnterTransition()
-            thumbImg.load(this, cover, {
+            thumbImg.load(this, cover) {
                 supportStartPostponedEnterTransition()
-            })
+            }
         } else {
             // 5.0以下加载
             binding.player.visibility = View.VISIBLE
@@ -134,19 +141,58 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
         orientationUtils = OrientationUtils(this)
         binding.player.setOrientationUtils(orientationUtils)
+
+        binding.playBtn.setOnClickListener {
+            binding.appBar.setExpanded(true)
+        }
+        binding.appBar.addOnOffsetChangedListener(object: AppBarLayout.OnOffsetChangedListener {
+            val EXPANDED = 1 shl 0
+            val COLLAPSED = 1 shl 1
+            val IDLE = 1 shl 2
+
+            var currentState = IDLE
+
+            override fun onOffsetChanged(appBarLayout: AppBarLayout, i: Int) {
+                if (i == 0) {
+                    if (currentState != EXPANDED) {
+
+                    }
+                    currentState = EXPANDED
+                } else if (Math.abs(i) >= appBarLayout.totalScrollRange) {
+                    if (currentState != COLLAPSED) {
+                        binding.playBtn.visibility = View.VISIBLE
+                    }
+                    currentState = COLLAPSED
+                } else {
+                    if (currentState != IDLE) {
+                        binding.playBtn.visibility = View.GONE
+                    }
+                    currentState = IDLE
+                }
+            }
+        })
     }
 
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     fun initTransition() {
         val changeBounds = ChangeBounds()
+        changeBounds.pathMotion = ArcMotion()
 
         window.sharedElementReturnTransition = null
         window.sharedElementExitTransition = changeBounds
 
-        window.sharedElementEnterTransition.interpolator = FastOutSlowInInterpolator()
+        // FIXME: Not work
+        val sharedEnterTransition = TransitionSet()
+        sharedEnterTransition.ordering = TransitionSet.ORDERING_TOGETHER
+        sharedEnterTransition.addTransition(ChangeBounds())
+        sharedEnterTransition.addTransition(ChangeTransform())
+        sharedEnterTransition.addTransition(ChangeClipBounds())
+        sharedEnterTransition.addTransition(ChangeImageTransform())
+        sharedEnterTransition.interpolator = FastOutSlowInInterpolator()
+        window.sharedElementEnterTransition = sharedEnterTransition
 
         val slideUp = Slide(Gravity.TOP)
-        slideUp.addTarget(binding.player.getChildAt(0))
+        slideUp.addTarget(binding.appBar)
         val slideDown = Slide(Gravity.BOTTOM)
         slideDown.addTarget(binding.mainLinear)
         val slideAll = TransitionSet()
@@ -169,12 +215,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
                     }
                 })
 
-//                val cx = (binding.player.left + binding.player.right) / 2
-//                val cy = (binding.player.top + binding.player.bottom)  / 2
-//                val radius = maxOf(binding.player.width, binding.player.height)
-//                val revealAnimator = ViewAnimationUtils.createCircularReveal(binding.player, cx, cy, 0f, radius.toFloat())
-
-                enterAnimatorSet.playTogether(slideBottomAnimator, fadeIn1Animator, fadeIn2Animator /*, revealAnimator */)
+                enterAnimatorSet.playTogether(slideBottomAnimator, fadeIn1Animator, fadeIn2Animator)
                 enterAnimatorSet.start()
             }
 
@@ -201,26 +242,37 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
                 if (transitionIn) {
                     transitionIn = false
                 } else {
-                    sharedElements?.run {
-                        remove("cover")
-                        remove("bg")
-                    }
+                    sharedElements?.clear()
                 }
             }
         })
     }
 
-    fun loadResult(result: Result) {
-        this.result = result
+    fun loadVideo(video: Video) {
+        this.video = video
         setupPlayer()
-        videoPagerAdapter.bindResult(result)
+        videoPagerAdapter.bindVideo(video)
     }
 
     fun setupPlayer() {
         GSYVideoManager.instance().optionModelList = mutableListOf(
-                VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "safe", 0),
-                VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "protocol_whitelist", "concat,file,subfile,http,https,tls,rtp,tcp,udp,crypto"),
-                VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user_agent", "ijk")
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "safe", 0),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "protocol_whitelist", "concat,file,subfile,http,https,tls,rtp,tcp,udp,crypto,async"),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user_agent", "ijk"),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "probesize", 102400),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "analyzeduration", 100),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 1),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "infbuf", 0),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-buffer-size", 15 * 1024 * 1024),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-fps", 30),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "r", "29.97"),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "async-forwards-capacity", 15 * 1024 * 1024),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "async-backwards-capacity", 15 * 1024 * 1024),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_CODEC,  "skip_loop_filter", 48),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "dns_cache_clear", 1),
+            VideoOptionModel(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "dns_cache_timeout", -1)
         )
 
         // 是否可以滑动界面改变进度，声音
@@ -234,17 +286,22 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             orientationUtils.backToLand()
         }
 
-        GSYVideoType.enableMediaCodec() // 开启硬解
+        if (PlayerConfig.loadHardCodec()) {
+            GSYVideoType.enableMediaCodec() // 开启硬解
+        }
 
         binding.player.speed = 1f
 
         binding.player.setStandardVideoAllCallBack(object: StandardVideoAllCallBackAdapter() {
-            override fun onPrepared(p0: String?, vararg p1: Any?) {
-                super.onPrepared(p0, *p1)
+            override fun onPrepared(url: String?) {
+                super.onPrepared(url)
+                binding.player.loadText?.let {
+                    it.visibility = View.GONE
+                }
             }
 
-            override fun onClickStartIcon(p0: String?, vararg p1: Any?) {
-                super.onClickStartIcon(p0, *p1)
+            override fun onClickStartIcon(url: String?) {
+                super.onClickStartIcon(url)
                 isPlay = true
                 if (firstPlay) {
                     firstPlay = false
@@ -255,22 +312,22 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             }
 
             // 播放完了
-            override fun onAutoComplete(p0: String?, vararg p1: Any?) {
-                super.onAutoComplete(p0, *p1)
+            override fun onAutoComplete(url: String?) {
+                super.onAutoComplete(url)
                 isPlay = false
                 binding.player.onVideoPause(true, true)
             }
         })
     }
 
-    fun loadDuals(durls: MutableList<Durl>?) {
+    fun loadDurls(durls: MutableList<Durl>?) {
         durls?.isNotEmpty().let {
             binding.player.loadText?.let {
                 it.text = it.text.replace("解析视频地址...".toRegex(), "解析视频地址...[完成]")
                 binding.player.startButton.visibility = View.VISIBLE
             }
             if (durls!!.size == 1) {
-                binding.player.setUp(if (selectedPart.flag == DownloadStatus.COMPLETED) durls[0].getCacheAbsolutePath() else durls[0].url, true, null)
+                binding.player.setUp(if (selectedPart.flag == DownloadStatus.COMPLETED) durls[0].getCacheAbsolutePath() else durls[0].url)
             } else {
                 binding.player.setUp(durls, selectedPart.flag == DownloadStatus.COMPLETED)
             }
@@ -292,7 +349,7 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
             it.text = "播放器初始化...[完成]\n获取视频信息...[完成]\n解析视频地址...\n全舰弹幕装填..."
         }
         if (selectedPart.vid.isNotEmpty()) {
-            viewModel.queryPlayUrls(result.hid, selectedPart)
+            viewModel.queryPlayUrls(video.hid, selectedPart)
         } else {
             "所选视频已失效".toast()
         }
@@ -300,21 +357,34 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     override fun onPause() {
         super.onPause()
+        Log.d("FFF", "[debug video] onPause")
         binding.player.onVideoPause(isPlay)
         isPause = true
     }
 
     override fun onResume() {
         super.onResume()
+        Log.d("FFF", "[debug video] onResume")
         binding.player.onVideoResume()
         isPause = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d("FFF", "[debug video] onDestroy")
         GSYVideoPlayer.releaseAllVideos()
         GSYPreViewManager.instance().releaseMediaPlayer()
         binding.player.onVideoDestroy()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d("FFF", "[debug video] onStart")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d("FFF", "[debug video] onStop")
     }
 
     override fun onBackPressed() {
@@ -327,11 +397,12 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-            if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                if (!binding.player.isIfCurrentIsFullscreen) {
-                    binding.player.startWindowFullscreen(this, true, true)
-                }
+        Log.d("FFF", "[debug video] onConfigurationChanged")
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            if (!binding.player.isIfCurrentIsFullscreen) {
+                binding.player.startWindowFullscreen(this, true, true)
             }
+        }
     }
 
     override fun onSendDanmu(stime: Float, message: String) {
@@ -340,9 +411,9 @@ class VideoActivity : BaseActivity(), DanmuVideoPlayer.DanmuPlayerHolder {
 
     override fun onSavePlayHistory(position: Int) {
         HistoryHelpers.savePlayHistory(
-                result.copy(create = DateFormat.format("yyyy-MM-dd hh:mm:ss", Date()).toString())
-                        .apply {
-                            video = video.filter {
+                video.copy(create = DateFormat.format("yyyy-MM-dd hh:mm:ss", Date()).toString())
+                        .also {
+                            it.parts = video.parts.filter {
                                 it.vid == selectedPart.vid
                             }.map {
                                 it.lastPlayPosition = position

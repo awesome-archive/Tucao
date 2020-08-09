@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import master.flame.danmaku.danmaku.model.BaseDanmaku;
 import master.flame.danmaku.danmaku.model.Danmaku;
@@ -39,7 +40,7 @@ public class Danmakus implements IDanmakus {
 
     private BaseDanmaku startSubItem;
 
-    private int mSize = 0;
+    private volatile AtomicInteger mSize = new AtomicInteger(0);
 
     private int mSortType = ST_BY_TIME;
 
@@ -57,15 +58,19 @@ public class Danmakus implements IDanmakus {
     }
 
     public Danmakus(int sortType, boolean duplicateMergingEnabled) {
+        this(sortType, duplicateMergingEnabled, null);
+    }
+
+    public Danmakus(int sortType, boolean duplicateMergingEnabled, BaseComparator baseComparator) {
         BaseComparator comparator = null;
         if (sortType == ST_BY_TIME) {
-            comparator = new TimeComparator(duplicateMergingEnabled);
+            comparator = baseComparator == null ? new TimeComparator(duplicateMergingEnabled) : baseComparator;
         } else if (sortType == ST_BY_YPOS) {
             comparator = new YPosComparator(duplicateMergingEnabled);
         } else if (sortType == ST_BY_YPOS_DESC) {
             comparator = new YPosDescComparator(duplicateMergingEnabled);
         }
-        if(sortType == ST_BY_LIST) {
+        if (sortType == ST_BY_LIST) {
             items = new LinkedList<>();
         } else {
             mDuplicateMergingEnabled = duplicateMergingEnabled;
@@ -74,7 +79,7 @@ public class Danmakus implements IDanmakus {
             mComparator = comparator;
         }
         mSortType = sortType;
-        mSize = 0;
+        mSize.set(0);
     }
 
     public Danmakus(Collection<BaseDanmaku> items) {
@@ -87,29 +92,32 @@ public class Danmakus implements IDanmakus {
 
     public void setItems(Collection<BaseDanmaku> items) {
         if (mDuplicateMergingEnabled && mSortType != ST_BY_LIST) {
-            this.items.clear();
-            this.items.addAll(items);
-            items = this.items;
-        }
-        else {
+            synchronized (this.mLockObject) {
+                this.items.clear();
+                this.items.addAll(items);
+                items = this.items;
+            }
+        } else {
             this.items = items;
         }
         if (items instanceof List) {
             mSortType = ST_BY_LIST;
         }
-        mSize = (items == null ? 0 : items.size());
+        mSize.set(items == null ? 0 : items.size());
     }
 
     @Override
     public boolean addItem(BaseDanmaku item) {
-        if (items != null) {
-            try {
-                if (items.add(item)) {
-                    mSize++;
-                    return true;
+        synchronized (this.mLockObject) {
+            if (items != null) {
+                try {
+                    if (items.add(item)) {
+                        mSize.incrementAndGet();
+                        return true;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
         return false;
@@ -123,9 +131,11 @@ public class Danmakus implements IDanmakus {
         if (item.isOutside()) {
             item.setVisibility(false);
         }
-        if (items.remove(item)) {
-            mSize--;
-            return true;
+        synchronized (this.mLockObject) {
+            if (items.remove(item)) {
+                mSize.decrementAndGet();
+                return true;
+            }
         }
         return false;
     }
@@ -207,14 +217,16 @@ public class Danmakus implements IDanmakus {
     }
 
     public int size() {
-        return mSize;
+        return mSize.get();
     }
 
     @Override
     public void clear() {
-        if (items != null) {
-            items.clear();
-            mSize = 0;
+        synchronized (this.mLockObject) {
+            if (items != null) {
+                items.clear();
+                mSize.set(0);
+            }
         }
         if (subItems != null) {
             subItems = null;
@@ -297,8 +309,10 @@ public class Danmakus implements IDanmakus {
                 break;
             } else if (action == DefaultConsumer.ACTION_REMOVE) {
                 it.remove();
+                mSize.decrementAndGet();
             } else if (action == DefaultConsumer.ACTION_REMOVE_AND_BREAK) {
                 it.remove();
+                mSize.decrementAndGet();
                 break;
             }
         }
